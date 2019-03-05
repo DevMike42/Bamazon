@@ -16,70 +16,157 @@ var connection = mysql.createConnection({
 // Connecting to the mysql and sql database
 connection.connect(function(err) {
     if (err) throw err;
-    displayProducts();
+    console.log("Connected as ID: " + connection.threadId);
+    start();
 });
 
-// 1. Display all 10 products for sale (ids, names, and prices)
-function displayProducts () {
-    connection.query("SELECT * FROM products", function(err, results) {
-        if (err) throw err;
-        inquirer.prompt([
-            {
-                name: "choice",
-                type: "rawlist",
-                choices: function() {
-                    var choiceArray = [];
-                    for (let i = 0; i < results.length; i++) {
-                         choiceArray.push(
-                            results[i].id + " | " +
-                            results[i].product_name + " | $" +
-                            results[i].price
-                            ) ;
-                    }
-                    return choiceArray;
-                },
-                message: "Which item would you like to purchase?"
-            },
-            {
-                name: "qty",
-                type: "input",
-                message: "What is the quantity you would like to purchase?"
-            }
-        ])
-        .then(function(answer) {
-            var answerId = parseInt(answer.choice.charAt(0));
-            // console.log("Answer.choice: " + answer.choice);
-            // console.log("Qty: " + answer.qty);
-            
-            connection.query("SELECT * FROM products WHERE id = 'answerId'")
 
-            // NEED TO CHECK INVENTORY LEVEL AND APPROVE OR DENY PURCHASE
+// Functions
+// =============================================================================
 
-        })
-    })  
+// Intial function to start prompt and display inventory
+function start() {
+
+    inquirer.prompt([{
+
+        type: "confirm",
+        name: "confirm",
+        message: "Welcome to Bamazon! Would you like to view our inventory?",
+        default: true
+
+    }])
+    .then(function(user) {
+        if (user.confirm === true) {
+            displayInventory();
+        }
+        else {
+            console.log("Thank you for your interest! Come back soon!");
+        };
+    });
 };
 
-// function start() {
+// Displays Inventory
+function displayInventory() {
 
-// }
+    connection.query("SELECT * FROM products", function(err, results) {
+        if (err) throw err;
+        console.log("\n" + "Items for sale!");
+        console.log("============================================");
+        for (let i = 0; i < results.length; i++) {
+            console.log(
+                "ID: " + results[i].id + " | " +
+                results[i].product_name + " | " +
+                "Price: $" + results[i].price
+            );
+        };
+        selectItem();
+    })
+};
 
+// Prompts user to select item, then checks inventory level
+function selectItem() {
 
-// 2. Promt user 2 messages
-    // 1. What is the id of the item you would like to purchase?
-    // 2. How many units of the item would you like to purchase?
+    inquirer.prompt([
+    {
+        type: "input",
+        name: "inputId",
+        message: "Please enter the item ID # you would like to purchase: "
+    },
+    {
+        type: "input",
+        name: "inputQty",
+        message: "How many units of this item would you like to purchase? "
+    }
+    // Checks inventory level of item of selction in DB and approves or denies purchase
+    ]).then(function(userChoice) {
 
+        // Connects to DB and checks stock level
+        connection.query("SELECT * FROM products WHERE id=?", userChoice.inputId, function(err, res) {
+            if (err) throw err;
+            for (let i = 0; i < res.length; i++) {
 
-// 3. Attempt to place order and check if the store has enough stock to process request
-    // If yes, process order (update database, show customer total cost aka receipt)
-    // If no, cancel transaction and display "Insufficient stock"
+                // Declines transaction if stock level is below qty desired
+                if(userChoice.inputQty > res[i].stock_quantity) {
 
+                    console.log("=====================================================================");
+                    console.log("We apologize. There is not enough stock on hand to process your order");
+                    console.log("                   Please try again later");
+                    start();
 
-// ====================================================================================
+                }
+                // Approves transaction if stock on hand is sufficient for purchase
+                else {
+
+                    console.log("=====================================================================");
+                    console.log("Hooray! There is enough stock on hand to fulfill your order!");
+                    console.log("=====================================================================");
+                    console.log("You have selected the following items: ");
+                    console.log("---------------------------------------");
+                    console.log("Item: " + res[i].product_name);
+                    console.log("Department: " + res[i].department_name);
+                    console.log("Price: $" + res[i].price);
+                    console.log("Qty: " + userChoice.inputQty);
+                    console.log("---------------------------------------");
+
+                    var newQty = (res[i].stock_quantity - userChoice.inputQty);
+                    var purchaseId = (userChoice.inputId);
+
+                    // takes user to confirmPurchase function to handle DB updates and complete trans
+                    confirmPurchase(newQty, purchaseId);
+                }
+            }
+        })
+    });
+};
+
+// Function for confirming purchase
+function confirmPurchase(newQty, purchaseId) {
+
+    // Asks user to confirm purchase
+    inquirer.prompt([
+        {
+            type: "confirm",
+            name: "confirmPurchase",
+            message: "Are you sure you would like to purchase this item at the listed qty?",
+            default: true
+        }
+    ]).then(function(userConfirm) {
+
+        // If they confirm, connect to DB
+        if (userConfirm.confirmPurchase === true) {
+
+            // updates qty levels in DB
+            connection.query("UPDATE products SET ? WHERE ?", [{
+                stock_quantity: newQty
+            }, {
+               id: purchaseId 
+            }], function(err, res) {
+            if (err) throw err;
+
+            // Thanks user for transaction
+            console.log("================================");
+            console.log("Transaction completed. Thank you");
+            console.log("================================");
+            })
+        }
+        // Cancels transaction if user denies confirmation
+        else {
+            console.log("================================");
+            console.log("Someone can't make up their mind");
+            console.log("           Goodbybe");
+            console.log("================================");
+            start();
+        }
+    })
+        
+};
+
 
 // Manager View (Next Level)
-
-
-
 // ====================================================================================
 
+
+
+
 // Supervisor View (Final Level)
+// ====================================================================================
