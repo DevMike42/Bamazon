@@ -80,10 +80,12 @@ function selectItem() {
     // Checks inventory level of item of selction in DB and approves or denies purchase
     ]).then(function(userChoice) {
 
+        // Connects to DB and checks stock level
         connection.query("SELECT * FROM products WHERE id=?", userChoice.inputId, function(err, res) {
             if (err) throw err;
             for (let i = 0; i < res.length; i++) {
 
+                // Declines transaction if stock level is below qty desired
                 if(userChoice.inputQty > res[i].stock_quantity) {
 
                     console.log("=====================================================================");
@@ -92,6 +94,7 @@ function selectItem() {
                     start();
 
                 }
+                // Approves transaction if stock on hand is sufficient for purchase
                 else {
 
                     console.log("=====================================================================");
@@ -108,6 +111,7 @@ function selectItem() {
                     var newQty = (res[i].stock_quantity - userChoice.inputQty);
                     var purchaseId = (userChoice.inputId);
 
+                    // takes user to confirmPurchase function to handle DB updates and complete trans
                     confirmPurchase(newQty, purchaseId);
                 }
             }
@@ -115,8 +119,10 @@ function selectItem() {
     });
 };
 
+// Function for confirming purchase
 function confirmPurchase(newQty, purchaseId) {
 
+    // Asks user to confirm purchase
     inquirer.prompt([
         {
             type: "confirm",
@@ -126,8 +132,10 @@ function confirmPurchase(newQty, purchaseId) {
         }
     ]).then(function(userConfirm) {
 
+        // If they confirm, connect to DB
         if (userConfirm.confirmPurchase === true) {
 
+            // updates qty levels in DB
             connection.query("UPDATE products SET ? WHERE ?", [{
                 stock_quantity: newQty
             }, {
@@ -135,11 +143,13 @@ function confirmPurchase(newQty, purchaseId) {
             }], function(err, res) {
             if (err) throw err;
 
+            // Thanks user for transaction
             console.log("================================");
             console.log("Transaction completed. Thank you");
             console.log("================================");
             })
         }
+        // Cancels transaction if user denies confirmation
         else {
             console.log("================================");
             console.log("Someone can't make up their mind");
