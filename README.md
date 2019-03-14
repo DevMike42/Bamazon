@@ -1,5 +1,5 @@
 # Bamazon
-Homework 12 - Node.js &amp; MySQL - Bamazon
+Homework Week 12 - Node.js &amp; MySQL - Bamazon
 
 ## Overview
 
